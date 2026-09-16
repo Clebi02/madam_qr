@@ -1,6 +1,3 @@
-from django.db import models
-
-# Create your models here.
 import uuid
 from django.db import models
 
@@ -34,19 +31,20 @@ class Mesa(models.Model):
 
 class Pedido(models.Model):
     ESTADOS = [
-        ('pendiente', 'Pendiente'),
+        ('por_confirmar', 'Por Confirmar'),
+        ('pendiente', 'Pendiente (Cocina)'),
         ('preparacion', 'En Preparación'),
         ('listo', 'Listo'),
         ('entregado', 'Entregado'),
         ('cancelado', 'Cancelado'),
     ]
     mesa = models.ForeignKey(Mesa, on_delete=models.CASCADE)
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='por_confirmar')
     creado_en = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=8, decimal_places=2, default=0.00)
 
     def __str__(self):
-        return f"Pedido #{self.id} - Mesa {self.mesa.numero}"
+        return f"Pedido #{self.id} - Mesa {self.mesa.numero} ({self.estado})"
 
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, related_name='detalles', on_delete=models.CASCADE)
