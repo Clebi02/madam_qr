@@ -7,9 +7,9 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Mesa, Plato, Categoria, Pedido, DetallePedido
 
 # Configuración GPS del Restaurante (Ajusta con la ubicación de tu local)
-RESTAURANTE_LAT = -12.046374 
-RESTAURANTE_LON = -77.042793
-DISTANCIA_MAXIMA_METROS = 50.0
+RESTAURANTE_LAT = -11.87012 
+RESTAURANTE_LON = -77.12901
+DISTANCIA_MAXIMA_METROS = 100.0
 
 def calcular_distancia_metros(lat1, lon1, lat2, lon2):
     R = 6371000  # Radio de la Tierra en metros
