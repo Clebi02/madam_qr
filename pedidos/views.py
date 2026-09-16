@@ -1,6 +1,8 @@
 import json
+import uuid
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from .models import Mesa, Plato, Categoria, Pedido, DetallePedido
 
 def menu_vista(request, token):
@@ -8,6 +10,7 @@ def menu_vista(request, token):
     categorias = Categoria.objects.prefetch_related('platos').all().order_by('orden')
     return render(request, 'pedidos/menu.html', {'mesa': mesa, 'categorias': categorias})
 
+@csrf_exempt
 def crear_pedido_api(request, token):
     if request.method == 'POST':
         mesa = get_object_or_404(Mesa, token=token)
@@ -47,11 +50,19 @@ def cocina_api(request):
         })
     return JsonResponse({'pedidos': data})
 
+@csrf_exempt
 def cambiar_estado_api(request, pedido_id):
     if request.method == 'POST':
         pedido = get_object_or_404(Pedido, id=pedido_id)
         data = json.loads(request.body)
-        pedido.estado = data.get('nuevo_estado', 'entregado')
+        nuevo_estado = data.get('nuevo_estado', 'entregado')
+        pedido.estado = nuevo_estado
         pedido.save()
+
+        # Si el pedido es entregado/culminado, renovamos el token de la mesa para el siguiente cliente
+        if nuevo_estado == 'entregado':
+            pedido.mesa.token = uuid.uuid4()
+            pedido.mesa.save()
+
         return JsonResponse({'ok': True})
     return JsonResponse({'ok': False}, status=400)
