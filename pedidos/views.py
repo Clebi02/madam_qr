@@ -1,18 +1,16 @@
 import json
 import math
-import uuid
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Mesa, Plato, Categoria, Pedido, DetallePedido
 
-# Configuración GPS del Restaurante (Ajusta con la ubicación de tu local)
-RESTAURANTE_LAT = -11.87012 
-RESTAURANTE_LON = -77.12901
-DISTANCIA_MAXIMA_METROS = 100.0
+RESTAURANTE_LAT = -12.046374 
+RESTAURANTE_LON = -77.042793
+DISTANCIA_MAXIMA_METROS = 50.0
 
 def calcular_distancia_metros(lat1, lon1, lat2, lon2):
-    R = 6371000  # Radio de la Tierra en metros
+    R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
@@ -33,28 +31,27 @@ def crear_pedido_api(request, token):
         lat_user = data.get('lat')
         lon_user = data.get('lon')
 
-        # 1. Validación de GPS (Geocercado a 50 metros)
         if lat_user is None or lon_user is None:
-            return JsonResponse({'ok': False, 'error': 'Debes activar tu GPS para pedir.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Debes activar el GPS para pedir.'}, status=400)
         
         distancia = calcular_distancia_metros(RESTAURANTE_LAT, RESTAURANTE_LON, float(lat_user), float(lon_user))
         if distancia > DISTANCIA_MAXIMA_METROS:
             return JsonResponse({
                 'ok': False, 
-                'error': f'Estás fuera del restaurante ({int(distancia)}m). Máximo permitido: 50m.'
+                'error': f'Estás fuera del restaurante ({int(distancia)}m). Límite: 50m.'
             }, status=403)
 
         if not items:
             return JsonResponse({'ok': False, 'error': 'Carrito vacío'}, status=400)
 
-        # 2. Control de Comanda Activa (Anexar si la mesa ya tiene un pedido en curso)
+        # Buscar comanda activa de la mesa para anexar o crear nueva
         pedido = Pedido.objects.filter(
             mesa=mesa, 
-            estado__in=['por_confirmar', 'pendiente', 'preparacion']
+            estado__in=['pendiente', 'preparacion']
         ).first()
 
         if not pedido:
-            pedido = Pedido.objects.create(mesa=mesa, estado='por_confirmar', total=0)
+            pedido = Pedido.objects.create(mesa=mesa, estado='pendiente', total=0)
 
         monto_adicional = 0
         for item in items:
@@ -67,41 +64,25 @@ def crear_pedido_api(request, token):
         pedido.total = float(pedido.total) + float(monto_adicional)
         pedido.save()
         
-        return JsonResponse({'ok': True, 'pedido_id': pedido.id, 'anexo': pedido.detalles.count() > len(items)})
+        return JsonResponse({'ok': True, 'pedido_id': pedido.id})
 
     return JsonResponse({'ok': False}, status=400)
 
-# Vista Mozo / Caja (Aprobación)
-def mozo_vista(request):
-    return render(request, 'pedidos/mozo.html')
-
-def mozo_api(request):
-    pedidos = Pedido.objects.filter(estado='por_confirmar').order_by('creado_en')
-    data = []
-    for p in pedidos:
-        detalles = [f"{d.cantidad}x {d.plato.nombre}" for d in p.detalles.all()]
-        data.append({
-            'id': p.id,
-            'mesa': p.mesa.numero,
-            'total': str(p.total),
-            'hora': p.creado_en.strftime('%H:%M'),
-            'detalles': detalles
-        })
-    return JsonResponse({'pedidos': data})
-
-# Vista Cocina (Solo ve lo aprobado por el Mozo)
 def cocina_vista(request):
     return render(request, 'pedidos/cocina.html')
 
 def cocina_api(request):
-    pedidos = Pedido.objects.filter(estado__in=['pendiente', 'preparacion']).order_by('creado_en')
+    # Trae todos los pedidos activos (que no estén entregados ni cancelados)
+    pedidos = Pedido.objects.exclude(estado__in=['entregado', 'cancelado']).order_by('creado_en')
     data = []
     for p in pedidos:
         detalles = [f"{d.cantidad}x {d.plato.nombre}" for d in p.detalles.all()]
         data.append({
             'id': p.id,
             'mesa': p.mesa.numero,
-            'estado': p.estado,
+            'estado': p.get_estado_display(),
+            'estado_raw': p.estado,
+            'total': str(p.total),
             'hora': p.creado_en.strftime('%H:%M'),
             'detalles': detalles
         })

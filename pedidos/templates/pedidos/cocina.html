@@ -1,6 +1,9 @@
 {% extends 'pedidos/base.html' %}
 {% block content %}
-<h3 class="fw-bold mb-3"><i class="bi bi-shop me-2"></i>Monitor de Cocina</h3>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="fw-bold m-0"><i class="bi bi-display me-2"></i>Monitor Central de Pedidos</h3>
+    <span class="badge bg-success" id="indicadorStatus">En línea (3s)</span>
+</div>
 <div class="row g-3" id="contenedorPedidos"></div>
 {% endblock %}
 
@@ -10,29 +13,43 @@ function cargarPedidos() {
     fetch('/api/cocina/').then(r => r.json()).then(data => {
         let html = '';
         data.pedidos.forEach(p => {
+            let colorHeader = p.estado_raw === 'pendiente' ? 'bg-warning text-dark' : 'bg-info text-white';
+            
             html += `
             <div class="col-12 col-md-4">
-                <div class="card shadow-sm border-warning">
-                    <div class="card-header bg-warning text-dark d-flex justify-content-between font-monospace">
-                        <strong>Mesa ${p.mesa}</strong> <span>${p.hora}</span>
+                <div class="card shadow-sm">
+                    <div class="card-header ${colorHeader} d-flex justify-content-between font-monospace fw-bold">
+                        <span>Mesa ${p.mesa}</span>
+                        <span>${p.hora}</span>
                     </div>
                     <div class="card-body">
-                        <ul class="list-unstyled mb-3">${p.detalles.map(d => `<li>• ${d}</li>`).join('')}</ul>
-                        <button class="btn btn-success btn-sm w-100" onclick="despachar(${p.id})">Marcar Entregado</button>
+                        <div class="badge bg-secondary mb-2">${p.estado}</div>
+                        <ul class="list-unstyled mb-2">${p.detalles.map(d => `<li>• ${d}</li>`).join('')}</ul>
+                        <div class="fw-bold text-end text-success mb-3">Total: S/ ${p.total}</div>
+                        
+                        <div class="d-flex gap-1">
+                            ${p.estado_raw === 'pendiente' ? 
+                                `<button class="btn btn-primary btn-sm w-100" onclick="cambiarEstado(${p.id}, 'preparacion')">En Preparación</button>` : ''}
+                            <button class="btn btn-success btn-sm w-100" onclick="cambiarEstado(${p.id}, 'entregado')">Entregado</button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="cambiarEstado(${p.id}, 'cancelado')"><i class="bi bi-x-lg"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>`;
         });
+        if(data.pedidos.length === 0) html = '<div class="col-12 text-muted">No hay pedidos pendientes.</div>';
         document.getElementById('contenedorPedidos').innerHTML = html;
     });
 }
-function despachar(id) {
+
+function cambiarEstado(id, nuevoEstado) {
     fetch(`/api/pedido/estado/${id}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nuevo_estado: 'entregado' })
+        body: JSON.stringify({ nuevo_estado: nuevoEstado })
     }).then(() => cargarPedidos());
 }
+
 setInterval(cargarPedidos, 3000);
 cargarPedidos();
 </script>
