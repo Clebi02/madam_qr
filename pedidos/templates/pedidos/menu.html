@@ -1,0 +1,62 @@
+{% extends 'pedidos/base.html' %}
+{% block nav %}<span class="badge bg-warning text-dark fs-6">Mesa {{ mesa.numero }}</span>{% endblock %}
+{% block content %}
+<h4 class="fw-bold mb-3">Nuestra Carta</h4>
+
+{% for cat in categorias %}
+  <h5 class="text-secondary mt-4 border-bottom pb-1">{{ cat.nombre }}</h5>
+  <div class="row g-3">
+    {% for plato in cat.platos.all %}
+      {% if plato.disponible %}
+      <div class="col-12 col-md-6">
+        <div class="card card-plato p-3 d-flex flex-row align-items-center justify-content-between">
+          <div>
+            <h6 class="fw-bold mb-1">{{ plato.nombre }}</h6>
+            <p class="small text-muted mb-1">{{ plato.descripcion|default:"" }}</p>
+            <span class="fw-bold text-success">S/ {{ plato.precio }}</span>
+          </div>
+          <button class="btn btn-outline-primary btn-sm rounded-circle" onclick="agregar('{{ plato.id }}', '{{ plato.nombre }}', {{ plato.precio }})">
+            <i class="bi bi-plus-lg"></i>
+          </button>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endfor %}
+
+<div class="cart-bar d-none" id="cartBar">
+  <button class="btn btn-warning w-100 fw-bold py-3 shadow-lg d-flex justify-content-between px-4 rounded-4" onclick="enviarPedido()">
+    <span><i class="bi bi-bag-check-fill me-2"></i>Enviar Pedido (<span id="cartCount">0</span>)</span>
+    <span>S/ <span id="cartTotal">0.00</span></span>
+  </button>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+let carrito = {};
+function agregar(id, nombre, precio) {
+    if (carrito[id]) carrito[id].cant += 1;
+    else carrito[id] = { id, nombre, precio, cant: 1 };
+    render();
+}
+function render() {
+    let count = 0, total = 0;
+    Object.values(carrito).forEach(i => { count += i.cant; total += i.cant * i.precio; });
+    document.getElementById('cartCount').innerText = count;
+    document.getElementById('cartTotal').innerText = total.toFixed(2);
+    document.getElementById('cartBar').classList.toggle('d-none', count === 0);
+}
+function enviarPedido() {
+    let items = Object.values(carrito).map(i => ({ id: i.id, cantidad: i.cant }));
+    fetch('/api/pedido/{{ mesa.token }}/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+    }).then(r => r.json()).then(res => {
+        if(res.ok) { alert('¡Pedido enviado a cocina!'); carrito = {}; render(); }
+    });
+}
+</script>
+{% endblock %}

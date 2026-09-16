@@ -1,0 +1,39 @@
+{% extends 'pedidos/base.html' %}
+{% block content %}
+<h3 class="fw-bold mb-3"><i class="bi bi-shop me-2"></i>Monitor de Cocina</h3>
+<div class="row g-3" id="contenedorPedidos"></div>
+{% endblock %}
+
+{% block js %}
+<script>
+function cargarPedidos() {
+    fetch('/api/cocina/').then(r => r.json()).then(data => {
+        let html = '';
+        data.pedidos.forEach(p => {
+            html += `
+            <div class="col-12 col-md-4">
+                <div class="card shadow-sm border-warning">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between font-monospace">
+                        <strong>Mesa ${p.mesa}</strong> <span>${p.hora}</span>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-3">${p.detalles.map(d => `<li>• ${d}</li>`).join('')}</ul>
+                        <button class="btn btn-success btn-sm w-100" onclick="despachar(${p.id})">Marcar Entregado</button>
+                    </div>
+                </div>
+            </div>`;
+        });
+        document.getElementById('contenedorPedidos').innerHTML = html;
+    });
+}
+function despachar(id) {
+    fetch(`/api/pedido/estado/${id}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nuevo_estado: 'entregado' })
+    }).then(() => cargarPedidos());
+}
+setInterval(cargarPedidos, 3000);
+cargarPedidos();
+</script>
+{% endblock %}
