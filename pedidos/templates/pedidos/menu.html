@@ -36,8 +36,21 @@
 {% block js %}
 <script>
 let carrito = {};
+let temporizadorInactividad;
+const TIEMPO_EXPIRACION = 45 * 60 * 1000; // 45 minutos
+
+function resetearTemporizador() {
+    clearTimeout(temporizadorInactividad);
+    temporizadorInactividad = setTimeout(() => {
+        carrito = {};
+        render();
+        alert("Tu sesión de mesa ha expirado por inactividad. Vuelve a escanear el QR si deseas ordenar.");
+        location.reload();
+    }, TIEMPO_EXPIRACION);
+}
 
 function agregar(id, nombre, precio) {
+    resetearTemporizador();
     if (carrito[id]) carrito[id].cant += 1;
     else carrito[id] = { id, nombre, precio, cant: 1 };
     render();
@@ -52,8 +65,9 @@ function render() {
 }
 
 function enviarPedido() {
+    resetearTemporizador();
     if (!navigator.geolocation) {
-        alert("Tu navegador no soporta geolocalización.");
+        alert("Tu dispositivo no soporta geolocalización.");
         return;
     }
 
@@ -71,7 +85,7 @@ function enviarPedido() {
             .then(r => r.json())
             .then(res => {
                 if (res.ok) {
-                    alert('¡Pedido enviado! Esperando confirmación del mozo.');
+                    alert('¡Pedido enviado!');
                     carrito = {};
                     render();
                 } else {
@@ -80,10 +94,13 @@ function enviarPedido() {
             });
         },
         (err) => {
-            alert("Debes activar y permitir el GPS para realizar un pedido.");
+            alert("Debes permitir el acceso GPS para enviar el pedido.");
         },
         { enableHighAccuracy: true }
     );
 }
+
+// Inicializa el detector de inactividad
+resetearTemporizador();
 </script>
 {% endblock %}

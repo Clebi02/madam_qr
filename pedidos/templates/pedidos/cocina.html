@@ -1,7 +1,7 @@
 {% extends 'pedidos/base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="fw-bold m-0"><i class="bi bi-display me-2"></i>Monitor Central de Pedidos</h3>
+    <h3 class="fw-bold m-0"><i class="bi bi-display me-2"></i>Monitor Central</h3>
     <span class="badge bg-success" id="indicadorStatus">En línea (3s)</span>
 </div>
 <div class="row g-3" id="contenedorPedidos"></div>
@@ -13,8 +13,20 @@ function cargarPedidos() {
     fetch('/api/cocina/').then(r => r.json()).then(data => {
         let html = '';
         data.pedidos.forEach(p => {
-            let colorHeader = p.estado_raw === 'pendiente' ? 'bg-warning text-dark' : 'bg-info text-white';
-            
+            let colorHeader = 'bg-secondary text-white';
+            if (p.estado_raw === 'pendiente') colorHeader = 'bg-warning text-dark';
+            if (p.estado_raw === 'preparacion') colorHeader = 'bg-info text-white';
+            if (p.estado_raw === 'entregado') colorHeader = 'bg-primary text-white';
+
+            let listaPlatos = p.detalles.map(d => {
+                if (d.es_anexo) {
+                    return `<li class="p-1 mb-1 rounded bg-warning-subtle text-dark border border-warning fw-bold">
+                                <span class="badge bg-warning text-dark me-1">AÑADIDO</span> ${d.cantidad}x ${d.nombre}
+                            </li>`;
+                }
+                return `<li>• ${d.cantidad}x ${d.nombre}</li>`;
+            }).join('');
+
             html += `
             <div class="col-12 col-md-4">
                 <div class="card shadow-sm">
@@ -23,21 +35,27 @@ function cargarPedidos() {
                         <span>${p.hora}</span>
                     </div>
                     <div class="card-body">
-                        <div class="badge bg-secondary mb-2">${p.estado}</div>
-                        <ul class="list-unstyled mb-2">${p.detalles.map(d => `<li>• ${d}</li>`).join('')}</ul>
-                        <div class="fw-bold text-end text-success mb-3">Total: S/ ${p.total}</div>
+                        <div class="badge bg-dark mb-2">${p.estado}</div>
+                        <ul class="list-unstyled mb-2">${listaPlatos}</ul>
+                        <div class="fw-bold text-end text-success fs-5 mb-3">Total: S/ ${p.total}</div>
                         
-                        <div class="d-flex gap-1">
+                        <div class="d-flex flex-column gap-2">
                             ${p.estado_raw === 'pendiente' ? 
-                                `<button class="btn btn-primary btn-sm w-100" onclick="cambiarEstado(${p.id}, 'preparacion')">En Preparación</button>` : ''}
-                            <button class="btn btn-success btn-sm w-100" onclick="cambiarEstado(${p.id}, 'entregado')">Entregado</button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="cambiarEstado(${p.id}, 'cancelado')"><i class="bi bi-x-lg"></i></button>
+                                `<button class="btn btn-info text-white fw-bold w-100" onclick="cambiarEstado(${p.id}, 'preparacion')">Pasar a Preparación</button>` : ''}
+                            
+                            ${p.estado_raw === 'preparacion' ? 
+                                `<button class="btn btn-primary fw-bold w-100" onclick="cambiarEstado(${p.id}, 'entregado')">Marcar Entregado</button>` : ''}
+
+                            ${p.estado_raw === 'entregado' ? 
+                                `<button class="btn btn-success fw-bold w-100" onclick="cambiarEstado(${p.id}, 'pagado')"><i class="bi bi-cash-stack me-1"></i>Marcar Pagado (Liberar)</button>` : ''}
+
+                            <button class="btn btn-outline-danger btn-sm w-100" onclick="cambiarEstado(${p.id}, 'cancelado')">Cancelar Pedido</button>
                         </div>
                     </div>
                 </div>
             </div>`;
         });
-        if(data.pedidos.length === 0) html = '<div class="col-12 text-muted">No hay pedidos pendientes.</div>';
+        if(data.pedidos.length === 0) html = '<div class="col-12 text-muted">No hay mesas con pedidos activos.</div>';
         document.getElementById('contenedorPedidos').innerHTML = html;
     });
 }

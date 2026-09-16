@@ -5,8 +5,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Mesa, Plato, Categoria, Pedido, DetallePedido
 
-RESTAURANTE_LAT = -12.046374 
-RESTAURANTE_LON = -77.042793
+# --- EDITAR CON TUS COORDENADAS DE PRUEBA ---
+RESTAURANTE_LAT = -11.87012
+RESTAURANTE_LON = -77.12901
 DISTANCIA_MAXIMA_METROS = 50.0
 
 def calcular_distancia_metros(lat1, lon1, lat2, lon2):
@@ -44,14 +45,16 @@ def crear_pedido_api(request, token):
         if not items:
             return JsonResponse({'ok': False, 'error': 'Carrito vacío'}, status=400)
 
-        # Buscar comanda activa de la mesa para anexar o crear nueva
+        # Si el pedido sigue en mesa (pendiente, preparacion o entregado), reactiva la comanda
         pedido = Pedido.objects.filter(
             mesa=mesa, 
-            estado__in=['pendiente', 'preparacion']
+            estado__in=['pendiente', 'preparacion', 'entregado']
         ).first()
 
         if not pedido:
             pedido = Pedido.objects.create(mesa=mesa, estado='pendiente', total=0)
+        else:
+            pedido.estado = 'pendiente'  # Se reactiva para avisar al monitor que hay un añadido
 
         monto_adicional = 0
         for item in items:
@@ -72,11 +75,19 @@ def cocina_vista(request):
     return render(request, 'pedidos/cocina.html')
 
 def cocina_api(request):
-    # Trae todos los pedidos activos (que no estén entregados ni cancelados)
-    pedidos = Pedido.objects.exclude(estado__in=['entregado', 'cancelado']).order_by('creado_en')
+    pedidos = Pedido.objects.exclude(estado__in=['pagado', 'cancelado']).order_by('creado_en')
     data = []
     for p in pedidos:
-        detalles = [f"{d.cantidad}x {d.plato.nombre}" for d in p.detalles.all()]
+        detalles_data = []
+        for d in p.detalles.all():
+            # Identifica si el ítem fue agregado después de crear la comanda inicial (diferencia > 15s)
+            es_anexo = (d.creado_en - p.creado_en).total_seconds() > 15
+            detalles_data.append({
+                'nombre': d.plato.nombre,
+                'cantidad': d.cantidad,
+                'es_anexo': es_anexo
+            })
+
         data.append({
             'id': p.id,
             'mesa': p.mesa.numero,
@@ -84,7 +95,7 @@ def cocina_api(request):
             'estado_raw': p.estado,
             'total': str(p.total),
             'hora': p.creado_en.strftime('%H:%M'),
-            'detalles': detalles
+            'detalles': detalles_data
         })
     return JsonResponse({'pedidos': data})
 

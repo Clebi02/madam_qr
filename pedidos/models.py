@@ -17,7 +17,6 @@ class Plato(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     precio = models.DecimalField(max_digits=6, decimal_places=2)
     disponible = models.BooleanField(default=True)
-    imagen_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return self.nombre
@@ -31,15 +30,14 @@ class Mesa(models.Model):
 
 class Pedido(models.Model):
     ESTADOS = [
-        ('por_confirmar', 'Por Confirmar'),
         ('pendiente', 'Pendiente (Cocina)'),
         ('preparacion', 'En Preparación'),
-        ('listo', 'Listo'),
-        ('entregado', 'Entregado'),
+        ('entregado', 'Entregado (En Mesa)'),
+        ('pagado', 'Pagado (Cerrado)'),
         ('cancelado', 'Cancelado'),
     ]
     mesa = models.ForeignKey(Mesa, on_delete=models.CASCADE)
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='por_confirmar')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
     creado_en = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=8, decimal_places=2, default=0.00)
 
@@ -51,3 +49,4 @@ class DetallePedido(models.Model):
     plato = models.ForeignKey(Plato, on_delete=models.CASCADE)
     cantidad = models.IntegerField(default=1)
     subtotal = models.DecimalField(max_digits=6, decimal_places=2)
+    creado_en = models.DateTimeField(auto_now_add=True)
